@@ -4,16 +4,19 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Chronometer;
+import android.widget.TextView;
 import android.widget.Toast;
 
 
@@ -41,11 +44,16 @@ public class MainActivity extends AppCompatActivity {
     private LocationManager locationManager;
     private LocationListener listener;
 
-    // Buttons
+    // Views
     Button startBtn;
     Button pauseResumeBtn;
     Button finishBtn;
     Chronometer runTimer;
+    TextView distanceValue;
+    TextView avgSpeedValue;
+
+    PowerManager mgr;
+    PowerManager.WakeLock wakeLock;
 
 
     @Override
@@ -69,6 +77,9 @@ public class MainActivity extends AppCompatActivity {
         pauseResumeBtn = (Button) findViewById(R.id.startPauseButton);
         finishBtn = (Button) findViewById(R.id.finishButton);
         runTimer = (Chronometer) findViewById(R.id.runTimer);
+        distanceValue = (TextView) findViewById(R.id.distanceValue);
+        avgSpeedValue = (TextView) findViewById(R.id.avgSpeedValue);
+
 
         // ask for location permissions
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
@@ -97,6 +108,35 @@ public class MainActivity extends AppCompatActivity {
         startBtn.setEnabled(false);
         pauseResumeBtn.setEnabled(true);
         finishBtn.setEnabled(true);
+
+        // allow app to run when phone is locked
+        mgr = (PowerManager) getApplicationContext().getSystemService(Context.POWER_SERVICE);
+        wakeLock = mgr.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RunStats:MyWakeLock");
+        wakeLock.acquire();
+    }
+
+    // continuously updates distance to display while running
+    public void trackDistance() {
+        listener = new LocationListener() {
+            @Override
+            public void onLocationChanged(Location location) {
+                locations.add(location);
+
+                // update distance traveled whenever moved
+                computeDistance();
+                computeAverageSpeed();
+                distanceValue.setText(String.format("%.2f", currentDistanceMiles));
+                avgSpeedValue.setText(String.format("%.2f", averageSpeed));
+            }
+        };
+
+        // request location permissions here?
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, listener);
+        }
+
+        // TODO: the app can now tell when the distance has changed. convert this info to distance traveled
+        // https://stackoverflow.com/questions/41719550/android-calculate-distance-traveled
     }
 
     public void toggleTimer(View view) {
@@ -129,26 +169,16 @@ public class MainActivity extends AppCompatActivity {
             totalMillisRan = (int) (timeSoFar);
         }
 
-        runTimer.setBase(SystemClock.elapsedRealtime());
+        //runTimer.setBase(SystemClock.elapsedRealtime());
         runTimer.stop();
 
         totalTimeRan = millisToTime(totalMillisRan);
 
-        //Toast.makeText(getBaseContext(), "Run finished. You ran for " + totalTimeRan.stringifyTime() + "!", Toast.LENGTH_LONG).show();
+         Toast.makeText(getBaseContext(), "Run finished. You ran for "
+                 + totalTimeRan.stringifyTime() + "!", Toast.LENGTH_LONG).show();
 
-
-        // compute total distance in miles TODO: compute and update distance constantly?
-        for(Location loc : locations) {
-            latLngs.add(new LatLng(loc.getLatitude(), loc.getLongitude()));
-        }
-        currentDistance = SphericalUtil.computeLength(latLngs);
-        currentDistanceMiles = currentDistance/1609;
-
-        //Toast.makeText(getBaseContext(), "Run finished. You ran " + valueOf(currentDistanceMiles) + " miles!", Toast.LENGTH_LONG).show();
-
-        // compute average speed
-        averageSpeed = currentDistanceMiles/totalMillisRan*3600000;
-        Toast.makeText(getBaseContext(), "Run finished. You ran at an average speed of " + valueOf(averageSpeed) + " miles per hour!", Toast.LENGTH_LONG).show();
+        computeDistance();
+        computeAverageSpeed();
 
         // reset state so user can begin a new run any time
         isRunning = false;
@@ -156,30 +186,29 @@ public class MainActivity extends AppCompatActivity {
         timeSoFar = 0;
         currentDistance = 0;
         currentDistanceMiles = 0;
+        averageSpeed = 0;
+
         locations.clear();
         latLngs.clear();
+        wakeLock.release();
+
+        // stop the listener
+        locationManager.removeUpdates(listener);
     }
 
 
-    // updates distance to display while running
-    public void trackDistance() {
-        listener = new LocationListener() {
-            @Override
-            public void onLocationChanged(Location location) {
-                //Toast.makeText(getBaseContext(), valueOf(counter), Toast.LENGTH_LONG).show();
-                locations.add(location);
 
-
-            }
-        };
-
-        // request location permissions here?
-        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, listener);
+    // updates the current distance traveled for the currently existing values in locations
+    public void computeDistance() {
+        for(Location loc : locations) {
+            latLngs.add(new LatLng(loc.getLatitude(), loc.getLongitude()));
         }
+        currentDistance = SphericalUtil.computeLength(latLngs);
+        currentDistanceMiles = currentDistance/1609;
+    }
 
-        // TODO: the app can now tell when the distance has changed. convert this info to distance traveled
-        // https://stackoverflow.com/questions/41719550/android-calculate-distance-traveled
+    public void computeAverageSpeed() {
+        averageSpeed = currentDistanceMiles/totalMillisRan*3600000;
     }
 
     public Time millisToTime(int timeInMillis) {
