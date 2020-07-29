@@ -46,6 +46,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         started = false;
         isRunning = false;
+        timeSoFar = 0;
 
         // instantiate views
         startBtn = (Button) findViewById(R.id.startButton);
@@ -110,9 +111,6 @@ public class MainActivity extends AppCompatActivity {
 
     public void finishRun(View view) {
         // when finished, record the results of the workout (in a db?): save distance traveled (stop recording distance), time exercised (stop timer)
-        // reset state so user can begin a new run any time
-        isRunning = false;
-        started = false;
 
         // reset button states
         startBtn.setEnabled(true);
@@ -120,13 +118,24 @@ public class MainActivity extends AppCompatActivity {
         finishBtn.setEnabled(false);
 
         // reset the timer. TODO: save run duration in a database?
-        totalMillisRan = (int) (SystemClock.elapsedRealtime() - runTimer.getBase());
+        if(isRunning) {
+            totalMillisRan = (int) (SystemClock.elapsedRealtime() - runTimer.getBase());
+        } else {
+            totalMillisRan = (int) (timeSoFar);
+        }
+
         runTimer.setBase(SystemClock.elapsedRealtime());
         runTimer.stop();
 
         totalTimeRan = millisToTime(totalMillisRan);
 
         Toast.makeText(getBaseContext(), "Run finished. You ran for " + totalTimeRan.stringifyTime() + "!", Toast.LENGTH_LONG).show();
+
+        // reset state so user can begin a new run any time
+        isRunning = false;
+        started = false;
+        timeSoFar = 0;
+
     }
 
 
