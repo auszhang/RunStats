@@ -17,6 +17,9 @@ import android.widget.Chronometer;
 import android.widget.Toast;
 
 
+import com.google.android.gms.maps.model.LatLng;
+import com.google.maps.android.SphericalUtil;
+
 import java.util.ArrayList;
 
 import static java.lang.String.valueOf;
@@ -27,9 +30,13 @@ public class MainActivity extends AppCompatActivity {
     private boolean started;
     private boolean isRunning;
     private long timeSoFar;
+    private double currentDistance;
+    private double currentDistanceMiles;
+    private double averageSpeed;
     private int totalMillisRan;
     private Time totalTimeRan;
-    private ArrayList locations;
+    private ArrayList<Location> locations;
+    private ArrayList<LatLng> latLngs;
 
     private LocationManager locationManager;
     private LocationListener listener;
@@ -50,9 +57,12 @@ public class MainActivity extends AppCompatActivity {
         started = false;
         isRunning = false;
         timeSoFar = 0;
+        currentDistance = 0;
+        currentDistanceMiles = 0;
         totalMillisRan = 0;
         totalTimeRan = new Time(0,0,0);
         locations = new ArrayList();
+        latLngs = new ArrayList();
 
         // instantiate views
         startBtn = (Button) findViewById(R.id.startButton);
@@ -112,7 +122,7 @@ public class MainActivity extends AppCompatActivity {
         pauseResumeBtn.setEnabled(false);
         finishBtn.setEnabled(false);
 
-        // reset the timer. TODO: save run duration in a database?
+        // resets the timer and spits out the duration of the run. TODO: save run duration in a database?
         if(isRunning) {
             totalMillisRan = (int) (SystemClock.elapsedRealtime() - runTimer.getBase());
         } else {
@@ -124,12 +134,30 @@ public class MainActivity extends AppCompatActivity {
 
         totalTimeRan = millisToTime(totalMillisRan);
 
-        Toast.makeText(getBaseContext(), "Run finished. You ran for " + totalTimeRan.stringifyTime() + "!", Toast.LENGTH_LONG).show();
+        //Toast.makeText(getBaseContext(), "Run finished. You ran for " + totalTimeRan.stringifyTime() + "!", Toast.LENGTH_LONG).show();
+
+
+        // compute total distance in miles TODO: compute and update distance constantly?
+        for(Location loc : locations) {
+            latLngs.add(new LatLng(loc.getLatitude(), loc.getLongitude()));
+        }
+        currentDistance = SphericalUtil.computeLength(latLngs);
+        currentDistanceMiles = currentDistance/1609;
+
+        //Toast.makeText(getBaseContext(), "Run finished. You ran " + valueOf(currentDistanceMiles) + " miles!", Toast.LENGTH_LONG).show();
+
+        // compute average speed
+        averageSpeed = currentDistanceMiles/totalMillisRan*3600000;
+        Toast.makeText(getBaseContext(), "Run finished. You ran at an average speed of " + valueOf(averageSpeed) + " miles per hour!", Toast.LENGTH_LONG).show();
 
         // reset state so user can begin a new run any time
         isRunning = false;
         started = false;
         timeSoFar = 0;
+        currentDistance = 0;
+        currentDistanceMiles = 0;
+        locations.clear();
+        latLngs.clear();
     }
 
 
@@ -140,6 +168,8 @@ public class MainActivity extends AppCompatActivity {
             public void onLocationChanged(Location location) {
                 //Toast.makeText(getBaseContext(), valueOf(counter), Toast.LENGTH_LONG).show();
                 locations.add(location);
+
+
             }
         };
 
