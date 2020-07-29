@@ -23,15 +23,16 @@ import static java.lang.String.valueOf;
 
 public class MainActivity extends AppCompatActivity {
 
-    private long timeSoFar;
+
     private boolean started;
     private boolean isRunning;
-    private ArrayList locations = new ArrayList();
-    private LocationManager locationManager;
-    private LocationListener listener;
-    private int counter;
+    private long timeSoFar;
     private int totalMillisRan;
     private Time totalTimeRan;
+    private ArrayList locations;
+
+    private LocationManager locationManager;
+    private LocationListener listener;
 
     // Buttons
     Button startBtn;
@@ -44,9 +45,14 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // instantiate variables
         started = false;
         isRunning = false;
         timeSoFar = 0;
+        totalMillisRan = 0;
+        totalTimeRan = new Time(0,0,0);
+        locations = new ArrayList();
 
         // instantiate views
         startBtn = (Button) findViewById(R.id.startButton);
@@ -63,19 +69,9 @@ public class MainActivity extends AppCompatActivity {
         // disable the pause/resume button and the finish button
         pauseResumeBtn.setEnabled(false);
         finishBtn.setEnabled(false);
-
-        // will need to convert this to h:m:s
-        totalMillisRan = 0;
-        totalTimeRan = new Time(0,0,0);
-    }
-
-    public void onStart(View view) {
-        runTimer.setBase(SystemClock.elapsedRealtime() - timeSoFar);
-        runTimer.start();
     }
 
     public void startRun(View view) {
-
         started = true;
         isRunning = true;
         Toast.makeText(getBaseContext(), "Starting Run", Toast.LENGTH_LONG).show();
@@ -91,7 +87,6 @@ public class MainActivity extends AppCompatActivity {
         startBtn.setEnabled(false);
         pauseResumeBtn.setEnabled(true);
         finishBtn.setEnabled(true);
-
     }
 
     public void toggleTimer(View view) {
@@ -135,17 +130,14 @@ public class MainActivity extends AppCompatActivity {
         isRunning = false;
         started = false;
         timeSoFar = 0;
-
     }
 
 
     // updates distance to display while running
     public void trackDistance() {
-        counter = 0;
         listener = new LocationListener() {
             @Override
             public void onLocationChanged(Location location) {
-                counter++;
                 //Toast.makeText(getBaseContext(), valueOf(counter), Toast.LENGTH_LONG).show();
                 locations.add(location);
             }
@@ -180,7 +172,4 @@ public class MainActivity extends AppCompatActivity {
         result = new Time(hours, minutes, seconds);
         return result;
     }
-
-
-
 }
