@@ -4,12 +4,16 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.util.Log;
@@ -19,30 +23,21 @@ import android.widget.Chronometer;
 import android.widget.TextView;
 import android.widget.Toast;
 
-
-import com.google.android.gms.maps.model.LatLng;
-import com.google.maps.android.SphericalUtil;
-
-import java.util.ArrayList;
-
-import static java.lang.String.valueOf;
-
 public class MainActivity extends AppCompatActivity {
 
 
     private boolean started;
-    private boolean isRunning;
     private long timeSoFar;
-    private double currentDistance;
     private double currentDistanceMiles;
     private double averageSpeed;
     private int totalMillisRan;
     private Time totalTimeRan;
-    private ArrayList<Location> locations;
-    private ArrayList<LatLng> latLngs;
 
     private LocationManager locationManager;
     private LocationListener listener;
+
+    // LocationService
+    public LocationService locationService;
 
     // Views
     Button startBtn;
@@ -63,14 +58,10 @@ public class MainActivity extends AppCompatActivity {
 
         // instantiate variables
         started = false;
-        isRunning = false;
         timeSoFar = 0;
-        currentDistance = 0;
         currentDistanceMiles = 0;
         totalMillisRan = 0;
         totalTimeRan = new Time(0,0,0);
-        locations = new ArrayList();
-        latLngs = new ArrayList();
 
         // instantiate views
         startBtn = (Button) findViewById(R.id.startButton);
@@ -80,28 +71,51 @@ public class MainActivity extends AppCompatActivity {
         distanceValue = (TextView) findViewById(R.id.distanceValue);
         avgSpeedValue = (TextView) findViewById(R.id.avgSpeedValue);
 
-
-        // ask for location permissions
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
         }
+
+        // start LocationService
+        final Intent serviceStart = new Intent(this.getApplication(), LocationService.class);
+        this.getApplication().startService(serviceStart);
+        this.getApplication().bindService(serviceStart, serviceConnection, Context.BIND_AUTO_CREATE);
 
         // disable the pause/resume button and the finish button
         pauseResumeBtn.setEnabled(false);
         finishBtn.setEnabled(false);
     }
 
+    // listener of binding events between MainActivity and LocationService
+    private ServiceConnection serviceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+            String name = componentName.getClassName();
+
+            if(name.endsWith("LocationService")) {
+                locationService = ((LocationService.LocationServiceBinder) iBinder).getService();
+                locationService.startUpdatingLocation();
+            }
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName componentName) {
+            if(componentName.getClassName().equals("LocationService")) {
+                locationService = null;
+            }
+        }
+    };
+
     public void startRun(View view) {
         started = true;
-        isRunning = true;
+        this.locationService.startRunning();
         Toast.makeText(getBaseContext(), "Starting Run", Toast.LENGTH_LONG).show();
 
         // start the timer
         runTimer.setBase(SystemClock.elapsedRealtime() - timeSoFar);
         runTimer.start();
 
-        // start tracking distance
+        // start tracking distance HERE
         trackDistance();
 
         // disable start button and enable pause/resume button + finish button
@@ -117,10 +131,11 @@ public class MainActivity extends AppCompatActivity {
 
     // continuously updates distance to display while running
     public void trackDistance() {
+
         listener = new LocationListener() {
             @Override
             public void onLocationChanged(Location location) {
-                locations.add(location);
+                //locations.add(location);
 
                 // update distance traveled whenever moved
                 computeDistance();
@@ -129,26 +144,18 @@ public class MainActivity extends AppCompatActivity {
                 avgSpeedValue.setText(String.format("%.2f", averageSpeed));
             }
         };
-
-        // request location permissions here?
-        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, listener);
-        }
-
-        // TODO: the app can now tell when the distance has changed. convert this info to distance traveled
-        // https://stackoverflow.com/questions/41719550/android-calculate-distance-traveled
     }
 
     public void toggleTimer(View view) {
         if(started) {
-            if (isRunning) {
+            if (this.locationService.isRunning()) {
                 timeSoFar = SystemClock.elapsedRealtime() - runTimer.getBase();
                 runTimer.stop();
-                isRunning = false;
+                this.locationService.stopRunning();
             } else {
                 runTimer.setBase(SystemClock.elapsedRealtime() - timeSoFar);
                 runTimer.start();
-                isRunning = true;
+                this.locationService.startRunning();
             }
         }
 
@@ -163,7 +170,7 @@ public class MainActivity extends AppCompatActivity {
         finishBtn.setEnabled(false);
 
         // resets the timer and spits out the duration of the run. TODO: save run duration in a database?
-        if(isRunning) {
+        if(this.locationService.isRunning()) {
             totalMillisRan = (int) (SystemClock.elapsedRealtime() - runTimer.getBase());
         } else {
             totalMillisRan = (int) (timeSoFar);
@@ -181,30 +188,20 @@ public class MainActivity extends AppCompatActivity {
         computeAverageSpeed();
 
         // reset state so user can begin a new run any time
-        isRunning = false;
+        this.locationService.stopRunning();
         started = false;
         timeSoFar = 0;
-        currentDistance = 0;
         currentDistanceMiles = 0;
         averageSpeed = 0;
-
-        locations.clear();
-        latLngs.clear();
+        this.locationService.clearArrayLists();
         wakeLock.release();
-
-        // stop the listener
+        
         locationManager.removeUpdates(listener);
     }
 
-
-
     // updates the current distance traveled for the currently existing values in locations
     public void computeDistance() {
-        for(Location loc : locations) {
-            latLngs.add(new LatLng(loc.getLatitude(), loc.getLongitude()));
-        }
-        currentDistance = SphericalUtil.computeLength(latLngs);
-        currentDistanceMiles = currentDistance/1609;
+        currentDistanceMiles = this.locationService.getCurrentDistanceMiles();
     }
 
     public void computeAverageSpeed() {
