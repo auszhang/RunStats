@@ -10,7 +10,6 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.location.Location;
-import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -23,21 +22,24 @@ import android.widget.Chronometer;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class MainActivity extends AppCompatActivity {
+import static java.lang.String.valueOf;
 
+public class MainActivity extends AppCompatActivity implements ServiceCallbacks {
 
     private boolean started;
-    private long timeSoFar;
+    private long timeSoFar; // used when calculating stops
+
     private double currentDistanceMiles;
     private double averageSpeed;
+    private int currentMillisRan;
     private int totalMillisRan;
     private Time totalTimeRan;
 
     private LocationManager locationManager;
-    private LocationListener listener;
 
     // LocationService
     public LocationService locationService;
+    private boolean bound = false;
 
     // Views
     Button startBtn;
@@ -51,6 +53,8 @@ public class MainActivity extends AppCompatActivity {
     PowerManager.WakeLock wakeLock;
 
 
+    /** OVERRIDED METHODS **/
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -62,6 +66,8 @@ public class MainActivity extends AppCompatActivity {
         currentDistanceMiles = 0;
         totalMillisRan = 0;
         totalTimeRan = new Time(0,0,0);
+        averageSpeed = 0;
+        currentMillisRan = 0;
 
         // instantiate views
         startBtn = (Button) findViewById(R.id.startButton);
@@ -86,6 +92,26 @@ public class MainActivity extends AppCompatActivity {
         finishBtn.setEnabled(false);
     }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+        // bind to Service
+        Intent intent = new Intent(this, LocationService.class);
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // unbind from Service
+        if (bound) {
+            locationService.setCallbacks(null); // unregister
+            unbindService(serviceConnection);
+            bound = false;
+        }
+    }
+
+    // Callbacks for service binding, passed to bindService()
     // listener of binding events between MainActivity and LocationService
     private ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
@@ -96,6 +122,12 @@ public class MainActivity extends AppCompatActivity {
                 locationService = ((LocationService.LocationServiceBinder) iBinder).getService();
                 locationService.startUpdatingLocation();
             }
+
+            // cast the IBinder and get LocationService instance
+            LocationService.LocationServiceBinder binder = (LocationService.LocationServiceBinder) iBinder;
+            locationService = binder.getService();
+            bound = true;
+            locationService.setCallbacks(MainActivity.this); // register
         }
 
         @Override
@@ -103,11 +135,29 @@ public class MainActivity extends AppCompatActivity {
             if(componentName.getClassName().equals("LocationService")) {
                 locationService = null;
             }
+            bound = false;
         }
     };
 
+    /* Defined by ServiceCallbacks interface */
+    @Override
+    public void trackDistance() {
+        computeDistance();
+        computeAverageSpeed();
+        distanceValue.setText(String.format("%.2f", currentDistanceMiles));
+        avgSpeedValue.setText(String.format("%.2f", averageSpeed));
+    }
+
+
+    /** BUTTON FUNCTIONS **/
+
     public void startRun(View view) {
         started = true;
+        timeSoFar = 0;
+        currentDistanceMiles = 0;
+        totalMillisRan = 0;
+        totalTimeRan = new Time(0,0,0);        averageSpeed = 0;
+        currentMillisRan = 0;
         this.locationService.startRunning();
         Toast.makeText(getBaseContext(), "Starting Run", Toast.LENGTH_LONG).show();
 
@@ -127,23 +177,6 @@ public class MainActivity extends AppCompatActivity {
         mgr = (PowerManager) getApplicationContext().getSystemService(Context.POWER_SERVICE);
         wakeLock = mgr.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RunStats:MyWakeLock");
         wakeLock.acquire();
-    }
-
-    // continuously updates distance to display while running
-    public void trackDistance() {
-
-        listener = new LocationListener() {
-            @Override
-            public void onLocationChanged(Location location) {
-                //locations.add(location);
-
-                // update distance traveled whenever moved
-                computeDistance();
-                computeAverageSpeed();
-                distanceValue.setText(String.format("%.2f", currentDistanceMiles));
-                avgSpeedValue.setText(String.format("%.2f", averageSpeed));
-            }
-        };
     }
 
     public void toggleTimer(View view) {
@@ -170,11 +203,7 @@ public class MainActivity extends AppCompatActivity {
         finishBtn.setEnabled(false);
 
         // resets the timer and spits out the duration of the run. TODO: save run duration in a database?
-        if(this.locationService.isRunning()) {
-            totalMillisRan = (int) (SystemClock.elapsedRealtime() - runTimer.getBase());
-        } else {
-            totalMillisRan = (int) (timeSoFar);
-        }
+        totalMillisRan = getCurrentTimeRan();
 
         //runTimer.setBase(SystemClock.elapsedRealtime());
         runTimer.stop();
@@ -184,19 +213,33 @@ public class MainActivity extends AppCompatActivity {
          Toast.makeText(getBaseContext(), "Run finished. You ran for "
                  + totalTimeRan.stringifyTime() + "!", Toast.LENGTH_LONG).show();
 
-        computeDistance();
-        computeAverageSpeed();
+//        computeDistance();
+//        computeAverageSpeed();
 
         // reset state so user can begin a new run any time
-        this.locationService.stopRunning();
         started = false;
         timeSoFar = 0;
         currentDistanceMiles = 0;
+        totalMillisRan = 0;
         averageSpeed = 0;
+        currentMillisRan = 0;
+
+        // reset state so user can begin a new run any time
+        this.locationService.stopRunning();
         this.locationService.clearArrayLists();
         wakeLock.release();
-        
-        locationManager.removeUpdates(listener);
+    }
+
+
+    /** UTILITY FUNCTIONS **/
+
+    // gets current time ran in millis
+    public int getCurrentTimeRan() {
+        if(this.locationService.isRunning()) {
+            return (int) (SystemClock.elapsedRealtime() - runTimer.getBase());
+        } else {
+            return (int) (timeSoFar);
+        }
     }
 
     // updates the current distance traveled for the currently existing values in locations
@@ -205,7 +248,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void computeAverageSpeed() {
-        averageSpeed = currentDistanceMiles/totalMillisRan*3600000;
+        currentMillisRan = getCurrentTimeRan();
+        averageSpeed = currentDistanceMiles/currentMillisRan*3600000;
+        Log.i("AVGSPEEDDEBUG", "averageSpeed: " + valueOf(averageSpeed));
+        Log.i("AVGSPEEDDEBUG", "currentDistanceMiles: " + valueOf(currentDistanceMiles));
+        Log.i("AVGSPEEDDEBUG", "currentMillisRan: " + valueOf(currentMillisRan));
     }
 
     public Time millisToTime(int timeInMillis) {

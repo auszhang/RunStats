@@ -24,6 +24,7 @@ public class LocationService extends Service implements LocationListener, GpsSta
 
     public static final String LOG_TAG = LocationService.class.getSimpleName();
     private final LocationServiceBinder binder = new LocationServiceBinder();
+    private ServiceCallbacks serviceCallbacks;
 
     private ArrayList<Location> locations = new ArrayList<>();
     private ArrayList<LatLng> latLngs = new ArrayList<>();
@@ -33,9 +34,23 @@ public class LocationService extends Service implements LocationListener, GpsSta
     public LocationService() {
     }
 
+    // Binder class
+    public class LocationServiceBinder extends Binder {
+        public LocationService getService() {
+            return LocationService.this;
+        }
+    }
+
+
+    /** OVERRIDED METHODS **/
+
     @Override
     public IBinder onBind(Intent intent) {
         return binder;
+    }
+
+    public void setCallbacks(ServiceCallbacks callbacks) {
+        serviceCallbacks = callbacks;
     }
 
     @Override
@@ -72,11 +87,18 @@ public class LocationService extends Service implements LocationListener, GpsSta
         }
         computeDistance();
 
+        // updates distance changes in UI
+        if(serviceCallbacks != null && isRunning) {
+            serviceCallbacks.trackDistance();
+        }
+
         Intent intent = new Intent("LocationUpdated");
         intent.putExtra("location", newLocation);
 
         LocalBroadcastManager.getInstance(this.getApplication()).sendBroadcast(intent);
     }
+
+    /** LOCATION FUNCTIONS **/
 
     public void computeDistance() {
         for(Location loc : locations) {
@@ -101,25 +123,6 @@ public class LocationService extends Service implements LocationListener, GpsSta
         else {
             Log.d(LOG_TAG, "Location provider now UNAVAILABLE.");
         }
-    }
-
-    // binder class
-    public class LocationServiceBinder extends Binder {
-        public LocationService getService() {
-            return LocationService.this;
-        }
-    }
-
-    public void startRunning() {
-        isRunning = true;
-    }
-
-    public void stopRunning() {
-        isRunning = false;
-    }
-
-    public boolean isRunning() {
-        return isRunning;
     }
 
     public void startUpdatingLocation() {
@@ -152,10 +155,23 @@ public class LocationService extends Service implements LocationListener, GpsSta
         }
     }
 
+
+    /** UTILITY FUNCTIONS **/
+
     public void clearArrayLists() {
         locations.clear();
         latLngs.clear();
     }
 
+    public void startRunning() {
+        isRunning = true;
+    }
 
+    public void stopRunning() {
+        isRunning = false;
+    }
+
+    public boolean isRunning() {
+        return isRunning;
+    }
 }
