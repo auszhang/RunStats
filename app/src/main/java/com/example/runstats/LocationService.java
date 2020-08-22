@@ -25,7 +25,7 @@ import static java.lang.String.valueOf;
 public class LocationService extends Service implements LocationListener, GpsStatus.Listener {
 
     public static final String LOG_TAG = LocationService.class.getSimpleName();
-    public static final double NOISE_THRESHOLD = 0.00310686; // in miles; 5 meters
+    public static final double NOISE_THRESHOLD = 0.0007; // in miles; 1 meters
     private final LocationServiceBinder binder = new LocationServiceBinder();
     private ServiceCallbacks serviceCallbacks;
 
