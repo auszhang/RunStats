@@ -32,6 +32,7 @@ public class LocationService extends Service implements LocationListener, GpsSta
     private ArrayList<Location> locations = new ArrayList<>();
     private ArrayList<LatLng> latLngs = new ArrayList<>();
     private boolean isRunning = false;
+    private boolean finishedRunning = true;
     private double currentDistanceMiles = 0;
     private Location currentLocation;
 
@@ -209,13 +210,23 @@ public class LocationService extends Service implements LocationListener, GpsSta
     }
 
     public void startRunning() {
+        // starting run for the first time
+        if(finishedRunning) {
+            finishedRunning = false;
+            currentDistanceMiles = 0;
+            currentLocation = null;
+        }
+        // starting run after resuming
         isRunning = true;
-        currentDistanceMiles = 0;
-        currentLocation = null;
+
     }
 
     public void stopRunning() {
         isRunning = false;
+    }
+
+    public void finishRunning() {
+        finishedRunning = true;
     }
 
     public boolean isRunning() {

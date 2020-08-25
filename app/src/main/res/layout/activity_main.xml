@@ -28,11 +28,11 @@
         app:layout_constraintVertical_bias="0.405" />
 
     <Button
-        android:id="@+id/startPauseButton"
+        android:id="@+id/pauseResumeButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:onClick="toggleTimer"
-        android:text="Pause/Resume"
+        android:text="Pause Run"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -48,8 +48,8 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.219"
-        app:layout_constraintStart_toEndOf="@+id/startPauseButton"
-        app:layout_constraintTop_toTopOf="@+id/startPauseButton"
+        app:layout_constraintStart_toEndOf="@+id/pauseResumeButton"
+        app:layout_constraintTop_toTopOf="@+id/pauseResumeButton"
         app:layout_constraintVertical_bias="0.0" />
 
     <Button
@@ -59,7 +59,7 @@
         android:onClick="startRun"
         android:text="Start Run"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/startPauseButton"
+        app:layout_constraintEnd_toStartOf="@+id/pauseResumeButton"
         app:layout_constraintHorizontal_bias="0.644"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/runTimer"

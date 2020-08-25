@@ -71,7 +71,7 @@ public class MainActivity extends AppCompatActivity implements ServiceCallbacks 
 
         // instantiate views
         startBtn = (Button) findViewById(R.id.startButton);
-        pauseResumeBtn = (Button) findViewById(R.id.startPauseButton);
+        pauseResumeBtn = (Button) findViewById(R.id.pauseResumeButton);
         finishBtn = (Button) findViewById(R.id.finishButton);
         runTimer = (Chronometer) findViewById(R.id.runTimer);
         distanceValue = (TextView) findViewById(R.id.distanceValue);
@@ -151,6 +151,7 @@ public class MainActivity extends AppCompatActivity implements ServiceCallbacks 
 
     /** BUTTON FUNCTIONS **/
 
+    // start button
     public void startRun(View view) {
         started = true;
         timeSoFar = 0;
@@ -179,21 +180,25 @@ public class MainActivity extends AppCompatActivity implements ServiceCallbacks 
         wakeLock.acquire();
     }
 
+    // pause/resume button
     public void toggleTimer(View view) {
         if(started) {
             if (this.locationService.isRunning()) {
                 timeSoFar = SystemClock.elapsedRealtime() - runTimer.getBase();
                 runTimer.stop();
                 this.locationService.stopRunning();
+                pauseResumeBtn.setText("Resume Run");
             } else {
                 runTimer.setBase(SystemClock.elapsedRealtime() - timeSoFar);
                 runTimer.start();
                 this.locationService.startRunning();
+                pauseResumeBtn.setText("Pause Run");
             }
         }
 
     }
 
+    // finish run button
     public void finishRun(View view) {
         // when finished, record the results of the workout (in a db?): save distance traveled (stop recording distance), time exercised (stop timer)
 
@@ -213,10 +218,9 @@ public class MainActivity extends AppCompatActivity implements ServiceCallbacks 
          Toast.makeText(getBaseContext(), "Run finished. You ran for "
                  + totalTimeRan.stringifyTime() + "!", Toast.LENGTH_LONG).show();
 
-//        computeDistance();
-//        computeAverageSpeed();
-
         // reset state so user can begin a new run any time
+        this.locationService.finishRunning();
+        pauseResumeBtn.setText("Pause Run");
         started = false;
         timeSoFar = 0;
         currentDistanceMiles = 0;
