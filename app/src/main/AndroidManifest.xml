@@ -13,10 +13,13 @@
         android:roundIcon="@mipmap/shoe_icon"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+        <activity android:name=".ProfileActivity"></activity>
+        <activity android:name=".LogActivity" />
+
         <service
             android:name=".LocationService"
             android:enabled="true"
-            android:exported="false"></service>
+            android:exported="false" />
 
         <activity android:name=".MainActivity">
             <intent-filter>

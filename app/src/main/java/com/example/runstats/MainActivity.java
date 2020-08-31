@@ -22,6 +22,8 @@ import android.widget.Chronometer;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+
 import static java.lang.String.valueOf;
 
 public class MainActivity extends AppCompatActivity implements ServiceCallbacks {
@@ -48,6 +50,7 @@ public class MainActivity extends AppCompatActivity implements ServiceCallbacks 
     Chronometer runTimer;
     TextView distanceValue;
     TextView avgSpeedValue;
+    BottomNavigationView bottomNavigationView;
 
     PowerManager mgr;
     PowerManager.WakeLock wakeLock;
@@ -68,7 +71,6 @@ public class MainActivity extends AppCompatActivity implements ServiceCallbacks 
         totalTimeRan = new Time(0,0,0);
         averageSpeed = 0;
         currentMillisRan = 0;
-
         // instantiate views
         startBtn = (Button) findViewById(R.id.startButton);
         pauseResumeBtn = (Button) findViewById(R.id.pauseResumeButton);
@@ -76,6 +78,34 @@ public class MainActivity extends AppCompatActivity implements ServiceCallbacks 
         runTimer = (Chronometer) findViewById(R.id.runTimer);
         distanceValue = (TextView) findViewById(R.id.distanceValue);
         avgSpeedValue = (TextView) findViewById(R.id.avgSpeedValue);
+        bottomNavigationView = (BottomNavigationView) findViewById(R.id.bottom_navigation);
+
+        // set MainActivity to be selected by default
+        bottomNavigationView.setSelectedItemId(R.id.run);
+
+        // set bottom nav listener
+        bottomNavigationView.setOnNavigationItemSelectedListener((item) -> {
+            switch(item.getItemId()) {
+                case R.id.log:
+                    Intent intentLog = new Intent(MainActivity.this, LogActivity.class);
+                    intentLog.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+                    startActivity(intentLog);
+                    break;
+                case R.id.run:
+                    // current activity, do nothing
+                    break;
+                case R.id.profile:
+                    Intent intentProfile = new Intent(MainActivity.this, ProfileActivity.class);
+                    intentProfile.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+                    startActivity(intentProfile);
+                    break;
+            }
+            return false;
+        });
+
+
+
+
 
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {

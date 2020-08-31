@@ -20,6 +20,7 @@
         app:menu="@menu/bottom_navigation_menu" />
 
     <View
+        android:id="@+id/view"
         android:layout_width="match_parent"
         android:layout_height="4dp"
         android:layout_above="@id/bottom_navigation"
